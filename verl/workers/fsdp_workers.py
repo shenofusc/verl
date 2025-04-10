@@ -79,6 +79,12 @@ class ActorRolloutRefWorker(Worker):
     def __init__(self, config: DictConfig, role: str):
         super().__init__()
         self.config = config
+        os.environ["MASTER_ADDR"] = "127.0.0.1"
+        os.environ["MASTER_PORT"] = "29500"
+        print("MASTER_ADDR:", os.environ["MASTER_ADDR"])
+        print("MASTER_PORT:", os.environ["MASTER_PORT"])
+        if is_npu_available:
+            os.environ["HCCL_IF_IP"] = "127.0.0.1"
         import torch.distributed
         if not torch.distributed.is_initialized():
             torch.distributed.init_process_group(backend="hccl" if is_npu_available else "nccl")
