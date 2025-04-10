@@ -637,7 +637,7 @@ class CriticWorker(Worker):
         super().__init__()
         import torch.distributed
         if not torch.distributed.is_initialized():
-            torch.distributed.init_process_group(backend="nccl")
+            torch.distributed.init_process_group(backend="hccl" if is_npu_available else "nccl")
         self.config = config
 
         # build device mesh for Ulysses Sequence Parallel
@@ -931,7 +931,7 @@ class RewardModelWorker(Worker):
         super().__init__()
         import torch.distributed
         if not torch.distributed.is_initialized():
-            torch.distributed.init_process_group(backend="nccl")
+            torch.distributed.init_process_group(backend="hccl" if is_npu_available else "nccl")
         self.config = config
 
         # build device mesh for Ulysses Sequence Parallel
