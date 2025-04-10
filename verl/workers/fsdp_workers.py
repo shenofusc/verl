@@ -79,25 +79,9 @@ class ActorRolloutRefWorker(Worker):
     def __init__(self, config: DictConfig, role: str):
         super().__init__()
         self.config = config
-        import os
-        os.environ["MASTER_ADDR"] = "127.0.0.1"
-        os.environ["MASTER_PORT"] = "29500"
-        os.environ["RANK"] = "0"
-        os.environ["LOCAL_RANK"] = "0"
-        os.environ["WORLD_SIZE"] = "1"
-
-        if is_npu_available:
-            os.environ["HCCL_IF_IP"] = "127.0.0.1"
-            import torch
-            torch.npu.set_device("npu:0")  # 显式绑定
-
         import torch.distributed
         if not torch.distributed.is_initialized():
-            torch.distributed.init_process_group(
-                backend="hccl" if is_npu_available else "nccl",
-                world_size=1,
-                rank=0
-            )
+            torch.distributed.init_process_group()
 
         # build device mesh for FSDP
         world_size = torch.distributed.get_world_size()
