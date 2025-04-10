@@ -183,19 +183,19 @@ class TaskRunner:
                                            reward_fn_key=config.data.reward_fn_key)
         resource_pool_manager = ResourcePoolManager(resource_pool_spec=resource_pool_spec, mapping=mapping)
 
-    device_name = "npu" if is_npu_available else "cuda"
+        device_name = "npu" if is_npu_available else "cuda"
 
-    trainer = RayPPOTrainer(config=config,
-                            tokenizer=tokenizer,
-                            processor=processor,
-                            role_worker_mapping=role_worker_mapping,
-                            resource_pool_manager=resource_pool_manager,
-                            ray_worker_group_cls=ray_worker_group_cls,
-                            reward_fn=reward_fn,
-                            val_reward_fn=val_reward_fn,
-                            device_name=device_name)
-    trainer.init_workers()
-    trainer.fit()
+        trainer = RayPPOTrainer(config=config,
+                                tokenizer=tokenizer,
+                                processor=processor,
+                                role_worker_mapping=role_worker_mapping,
+                                resource_pool_manager=resource_pool_manager,
+                                ray_worker_group_cls=ray_worker_group_cls,
+                                reward_fn=reward_fn,
+                                val_reward_fn=val_reward_fn,
+                                device_name=device_name)
+        trainer.init_workers()
+        trainer.fit()
 
 
 if __name__ == '__main__':
