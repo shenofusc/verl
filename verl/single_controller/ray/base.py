@@ -89,13 +89,14 @@ class RayResourcePool(ResourcePool):
         pg_name_prefix = name if name else \
             f"{self.name_prefix}verl_group_{'_'.join([str(count) for count in self._store])}:"
         # print(f"pg_name_prefix = {pg_name_prefix}")
-        if device_name == "npu":
-            device_name = "NPU"
-        elif device_name == "cuda":
-            device_name = "GPU"
+        # if device_name == "npu":
+        #     device_name = "NPU"
+        # elif device_name == "cuda":
+        #     device_name = "GPU"
         pg_scheme = [[{
             "CPU": self.max_collocate_count,
-            device_name: 1
+            # device_name: 1
+            "NPU": 1
                       } if self.use_gpu else {
             "CPU": self.max_collocate_count
         } for _ in range(process_count)] for process_count in self._store]
