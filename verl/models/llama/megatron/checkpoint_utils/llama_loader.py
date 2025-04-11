@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import pkg_resources
 import importlib
 from packaging.version import Version
 import torch
@@ -19,6 +20,7 @@ import time
 from typing import Dict, Any, Callable, Optional
 import torch.distributed as dist
 
+megatron_version = pkg_resources.get_distribution('megatron_core').version
 
 def _megatron_calc_layer_map(config):
     """Calculate the mapping of global layer_idx to local layer_idx
@@ -60,7 +62,10 @@ def load_state_dict_to_megatron_llama(state_dict,
     """Load merged state_dict to sharded Megatron module in training.
     """
     from megatron.core import mpu
-    from verl.utils.megatron_utils import print_rank_0, unwrap_model
+    if pkg_resources.parse_version(megatron_version) < pkg_resources.parse_version('0.6.0'):
+        from megatron.utils import print_rank_0, unwrap_model
+    else:
+        from verl.training.utils.megatron_utils import print_rank_0, unwrap_model
     from megatron.core.transformer.module import Float16Module
     from megatron.core import DistributedDataParallel as LocalDDP
     from torch.nn.parallel import DistributedDataParallel as torchDDP

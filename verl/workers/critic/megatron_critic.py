@@ -23,7 +23,10 @@ from typing import Iterable
 import torch
 import torch.distributed
 from omegaconf import OmegaConf
+import pkg_resources
 from torch import nn
+if importlib.util.find_spec('mindspeed') is not None:
+    import mindspeed.megatron_adaptor
 
 from verl import DataProto
 from verl.trainer.ppo import core_algos
@@ -39,6 +42,12 @@ from megatron.core import parallel_state as mpu
 from megatron.core.pipeline_parallel import get_forward_backward_func
 from megatron.core.optimizer import DistributedOptimizer
 
+megatron_version = pkg_resources.get_distribution('megatron_core').version
+
+if pkg_resources.parse_version(megatron_version) < pkg_resources.parse_version('0.6.0'):
+    from megatron.optimizer import DistributedOptimizer
+else:
+    from megatron.core.optimizer import DistributedOptimizer
 
 class MegatronPPOCritic(BasePPOCritic):
 

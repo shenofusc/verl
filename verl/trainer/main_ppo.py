@@ -14,9 +14,86 @@
 """
 Note that we don't combine the main with ray_trainer as ray_trainer is used by other main.
 """
+
+import importlib.util
+from verl import DataProto
+import torch
+from verl.utils.reward_score import gsm8k, math
 from verl.trainer.ppo.ray_trainer import RayPPOTrainer
 
 import os
+# import npu adapter if exit.
+if importlib.util.find_spec('mindspeed') is not None:
+    import mindspeed.megatron_adaptor
+
+def _default_compute_score(data_source, solution_str, ground_truth):
+    if data_source == 'openai/gsm8k':
+        return gsm8k.compute_score(solution_str, ground_truth)
+    elif data_source in ['lighteval/MATH', 'DigitalLearningGmbH/MATH-lighteval']:
+        return math.compute_score(solution_str, ground_truth)
+    else:
+        raise NotImplementedError
+
+
+class RewardManager():
+    """The reward manager.
+    """
+
+    def __init__(self, tokenizer, num_examine, compute_score=None) -> None:
+        self.tokenizer = tokenizer
+        self.num_examine = num_examine  # the number of batches of decoded responses to print to the console
+        self.compute_score = compute_score or _default_compute_score
+
+    def __call__(self, data: DataProto):
+        """We will expand this function gradually based on the available datasets"""
+
+        # If there is rm score, we directly return rm score. Otherwise, we compute via rm_score_fn
+        if 'rm_scores' in data.batch.keys():
+            return data.batch['rm_scores']
+
+        reward_tensor = torch.zeros_like(data.batch['responses'], dtype=torch.float32)
+
+        already_print_data_sources = {}
+
+        for i in range(len(data)):
+            data_item = data[i]  # DataProtoItem
+
+            prompt_ids = data_item.batch['prompts']
+
+            prompt_length = prompt_ids.shape[-1]
+
+            valid_prompt_length = data_item.batch['attention_mask'][:prompt_length].sum()
+            valid_prompt_ids = prompt_ids[-valid_prompt_length:]
+
+            response_ids = data_item.batch['responses']
+            valid_response_length = data_item.batch['attention_mask'][prompt_length:].sum()
+            valid_response_ids = response_ids[:valid_response_length]
+
+            # decode
+            sequences = torch.cat((valid_prompt_ids, valid_response_ids))
+            sequences_str = self.tokenizer.decode(sequences)
+
+            ground_truth = data_item.non_tensor_batch['reward_model']['ground_truth']
+
+            data_source = data_item.non_tensor_batch['data_source']
+
+            score = self.compute_score(
+                data_source=data_source,
+                solution_str=sequences_str,
+                ground_truth=ground_truth,
+            )
+            reward_tensor[i, valid_response_length - 1] = score
+
+            if data_source not in already_print_data_sources:
+                already_print_data_sources[data_source] = 0
+
+            if already_print_data_sources[data_source] < self.num_examine:
+                already_print_data_sources[data_source] += 1
+                print(sequences_str)
+
+        return reward_tensor
+
+
 import ray
 import hydra
 
@@ -69,6 +146,9 @@ def run_ppo(config) -> None:
             'env_vars': {
                 'TOKENIZERS_PARALLELISM': 'true',
                 'NCCL_DEBUG': 'WARN',
+                # Unlike CUDA, Ascend NPU requires visibility of all devices that need to engage in HCCL communication.
+                # use this environment variable to enable visiblity of all devices.
+                "RAY_EXPERIMENTAL_NOSET_ASCEND_RT_VISIBLE_DEVICES": "true",
                 'VLLM_LOGGING_LEVEL': 'WARN'
             }
         })

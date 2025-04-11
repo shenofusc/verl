@@ -16,8 +16,19 @@
 import importlib
 from packaging.version import Version
 
+import pkg_resources
 from apex.optimizers import FusedAdam as Adam
 from apex.optimizers import FusedSGD as SGD
+
+megatron_version = pkg_resources.get_distribution('megatron_core').version
+
+if pkg_resources.parse_version(megatron_version) < pkg_resources.parse_version('0.6.0'):
+    from megatron.optimizer.distrib_optimizer import DistributedOptimizer
+    from megatron.optimizer.grad_scaler import ConstantGradScaler, DynamicGradScaler
+    from megatron.optimizer import Float16OptimizerWithFloat16Params, FP32Optimizer
+    from megatron.optimizer import get_param_groups
+else:
+    from megatron.core.optimizer import get_megatron_optimizer as get_megatron_optimizer_native
 
 from megatron.core.optimizer import OptimizerConfig
 

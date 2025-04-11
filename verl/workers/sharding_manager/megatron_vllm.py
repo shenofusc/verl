@@ -17,6 +17,7 @@ This file contains a Megatron style Hybrid Engine that shares the weights of the
 
 import importlib
 from packaging.version import Version
+import pkg_resources
 import torch
 import torch.distributed as dist
 
@@ -32,6 +33,8 @@ from verl.utils.memory_buffer import (
     build_memory_reference_from_module,
     get_weight_buffer_meta_from_module,
 )
+
+megatron_version = pkg_resources.get_distribution('megatron_core').version
 
 
 class AllGatherPPModel:
@@ -137,10 +140,15 @@ class AllGatherPPModel:
         for cur_pp_rank in range(self.pp_size):
             global_src = dist.get_global_rank(group=self.pp_group, group_rank=cur_pp_rank)
 
-            # NOTE(sgm): the async op may cause memory leakage of the memory_buffer/pp_models
+            if pkg_resources.parse_version(megatron_version) >= pkg_resources.parse_version('0.6.0'):
+                # The param to buffer map is different in veRL and Megatron, so use param directly
+                # instead of buffer in megatron>=0.6 so far.
+                for _, param in sorted(self.pp_models[cur_pp_rank].named_parameters()):
+                    dist.broadcast(tensor=param.data, src=global_src, group=self.pp_group, async_op=False)
+            else:# NOTE(sgm): the async op may cause memory leakage of the memory_buffer/pp_models
 
             for _, param in sorted(self.pp_models[cur_pp_rank].named_parameters()):
-                dist.broadcast(tensor=param.data, src=global_src, group=self.pp_group, async_op=False)
+                    dist.broadcast(tensor=param.data, src=global_src, group=self.pp_group, async_op=False)
 
     def forward(self, *inputs, **kwargs):
         try:

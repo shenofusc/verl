@@ -22,12 +22,17 @@ Note that our model doesn't have to be `MegatronModule` because we don't share e
 import importlib
 from functools import partial
 from packaging.version import Version
+import pkg_resources
 from typing import Iterable, Dict
 
 import torch
 from torch import nn
 import torch.distributed
 from megatron.core.optimizer import OptimizerConfig
+if importlib.util.find_spec('mindspeed') is not None:
+    import mindspeed.megatron_adaptor
+# from megatron import get_args
+# from verl.utils.megatron.optimizer_config import OptimizerConfig
 from megatron.core import parallel_state as mpu
 from megatron.core import ModelParallelConfig
 from verl.utils.megatron_utils import get_model_config
@@ -46,6 +51,13 @@ from verl.trainer.ppo.core_algos import compute_policy_loss, kl_penalty, agg_los
 from verl.workers.actor import BasePPOActor
 from verl.utils.py_functional import append_to_dict
 from verl.utils.torch_functional import logprobs_from_logits, masked_mean, broadcast_dict_tensor, split_dict_tensor_into_batches
+
+megatron_version = pkg_resources.get_distribution('megatron_core').version
+
+if pkg_resources.parse_version(megatron_version) < pkg_resources.parse_version('0.6.0'):
+    from megatron.optimizer import DistributedOptimizer
+else:
+    from megatron.core.optimizer import DistributedOptimizer
 
 __all__ = ['MegatronPPOActor']
 
